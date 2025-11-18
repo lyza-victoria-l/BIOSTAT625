@@ -1,7 +1,9 @@
 personYears =
   function(time1, time2 = NULL,
            event = NULL, group = NULL,
-           unit = "year", timeCut = NULL) {
+           unit = "year", timeCut = NULL,
+           rate = F) {
+
     if (is.null(time2)) {
       personYears = time1
     } else {
@@ -12,7 +14,7 @@ personYears =
     if(!(length(unit) == 1)) {stop("length(unit) != 1L")}
 
     if (!(unit %in% c("day", "week", "year", "month"))) {
-      stop("Incorrect scale argument")
+      stop("Incorrect unit argument")
     } else
       if (unit == "day") {
         personYears = personYears / 365.25
@@ -26,12 +28,9 @@ personYears =
             personYears = personYears / 12
           }
 
-    if(!is.null(timeCut)) {
-        timeInterval = cut(time, breaks = timeCut)
-    }
-
     if(!is.null(event)) {
-      if(length(event) != 2) {stop("length(event) != 2L")}
+      if(length(unique(event)) != 2) {stop("length(event) != 2L")}
+      if(!is.numeric(event)) {stop("event must be numeric")}
       event = event
     } else {event = rep(0, length(time1))}
 
@@ -43,17 +42,41 @@ personYears =
       } else {stop("group argument must be a vector")}
     }
 
-    result = aggregate(
-      data.frame(
-        personYears = personYears,
-        events = event,
-        n = 1),
-    by = list(group, timeInterval),
-    FUN = sum
-    )
 
-    return(result)
+    if (!is.null(timeCut)) {
+      timeInterval = cut(personYears, breaks = timeCut)
+      mat = as.matrix(table(group, timeInterval))
+      result1 = as.data.frame.matrix(mat)
+      colnames(result1) <- paste0("T:", colnames(mat))
 
+      result2 = aggregate(
+        data.frame(
+          personYears = personYears,
+          events = event,
+          n = 1
+        ),
+        by = list(group),
+        FUN = sum
+      )
+
+      result = cbind(result2, result1)
+
+    } else {
+      result = aggregate(
+        data.frame(
+          personYears = personYears,
+          events = event,
+          n = 1
+        ),
+        by = list(group),
+        FUN = sum
+      )
     }
+
+    if(rate == T) {rate = data.frame(Group = result$Group.1,
+                              rate = result$events/result$personYears)}
+
+    return(list(Table = result, Rate = rate))
+}
 
 
